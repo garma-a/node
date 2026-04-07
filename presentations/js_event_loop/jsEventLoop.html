@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Event Loop & Async Runtime</title>
+    <style>
+        :root {
+            --color-dark-bg: #0f172a;
+            --color-dark-surface: #1e293b;
+            --color-dark-text: #f1f5f9;
+            --color-dark-text-secondary: #cbd5e1;
+            --color-accent: #38bdf8;
+            --color-success: #10b981;
+            --color-warning: #f59e0b;
+            --color-danger: #ef4444;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Monaco', 'Menlo', monospace;
+            background-color: var(--color-dark-bg);
+            color: var(--color-dark-text);
+            overflow-x: hidden;
+        }
+
+        .slide {
+            width: 960px;
+            height: 540px;
+            margin: 0 auto 20px;
+            display: flex;
+            flex-shrink: 0;
+            position: relative;
+            overflow: hidden;
+            padding: 4rem;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            font-weight: 600;
+            line-height: 1.2;
+            margin: 0;
+        }
+
+        h1 { font-size: 3rem; }
+        h2 { font-size: 2.25rem; margin-bottom: 1.5rem; }
+        h3 { font-size: 1.75rem; margin-bottom: 1rem; }
+
+        .center {
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .row {
+            display: flex;
+            flex-direction: row;
+            gap: 1.5rem;
+        }
+
+        .col {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .fill-width { flex: 1; }
+        .fill-height { flex: 1; }
+        .items-center { align-items: center; }
+
+        code-block {
+            background-color: var(--color-dark-surface);
+            padding: 1.5rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            overflow-y: auto;
+            max-height: 250px;
+            margin-top: 1rem;
+        }
+
+        ul, ol {
+            margin-left: 2rem;
+            line-height: 1.8;
+        }
+
+        li {
+            margin-bottom: 0.75rem;
+            color: var(--color-dark-text-secondary);
+        }
+
+        p {
+            font-size: 1.125rem;
+            line-height: 1.6;
+            color: var(--color-dark-text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .card {
+            background-color: var(--color-dark-surface);
+            padding: 1.5rem;
+            border-left: 4px solid var(--color-accent);
+        }
+
+        .card-highlight {
+            background-color: var(--color-dark-surface);
+            padding: 1.5rem;
+            border-left: 4px solid var(--color-success);
+        }
+
+        .card-warning {
+            background-color: var(--color-dark-surface);
+            padding: 1.5rem;
+            border-left: 4px solid var(--color-warning);
+        }
+
+        .queue-box {
+            background-color: var(--color-dark-surface);
+            border: 2px solid var(--color-accent);
+            padding: 1rem;
+            margin: 0.5rem 0;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.95rem;
+        }
+
+        .stack-item {
+            background-color: var(--color-accent);
+            color: var(--color-dark-bg);
+            padding: 0.75rem 1rem;
+            margin: 0.25rem 0;
+            font-weight: 600;
+            border-radius: 2px;
+        }
+
+        .microtask-item {
+            background-color: var(--color-success);
+            color: var(--color-dark-bg);
+            padding: 0.75rem 1rem;
+            margin: 0.25rem 0;
+            font-weight: 600;
+            border-radius: 2px;
+        }
+
+        .macrotask-item {
+            background-color: var(--color-warning);
+            color: var(--color-dark-bg);
+            padding: 0.75rem 1rem;
+            margin: 0.25rem 0;
+            font-weight: 600;
+            border-radius: 2px;
+        }
+
+        .label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--color-accent);
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
+        }
+
+        .highlight-text {
+            color: var(--color-accent);
+        }
+
+        .success-text {
+            color: var(--color-success);
+        }
+
+        .warning-text {
+            color: var(--color-warning);
+        }
+
+        .code-inline {
+            background-color: var(--color-dark-surface);
+            padding: 0.2rem 0.6rem;
+            border-radius: 2px;
+            font-family: 'Monaco', monospace;
+            font-size: 0.95rem;
+        }
+
+        .gap-md { gap: 1rem; }
+        .gap-lg { gap: 1.5rem; }
+        .mt-2 { margin-top: 0.5rem; }
+        .mt-4 { margin-top: 1rem; }
+        .mb-2 { margin-bottom: 0.5rem; }
+        .mb-4 { margin-bottom: 1rem; }
+    </style>
+</head>
+<body>
+
+<!-- SLIDE 1: TITLE -->
+<section class="slide center" style="background-color: #020617;">
+    <h1 style="color: var(--color-accent); margin-bottom: 1rem;">JavaScript Event Loop</h1>
+    <h2 style="color: var(--color-dark-text); font-size: 1.5rem; margin-bottom: 2rem;">Deep Dive into Async Runtime Engine</h2>
+    <p style="font-size: 1rem; color: var(--color-dark-text-secondary);">Understanding Call Stack, Web APIs, Microtasks, and Macrotasks</p>
+    <p style="font-size: 0.9rem; color: var(--color-accent); margin-top: 2rem;">JavaScript Runtime Architecture</p>
+</section>
+
+<!-- SLIDE 2: SINGLE-THREADED NATURE -->
+<section class="slide" style="background-color: var(--color-dark-bg);">
+    <h2 style="color: var(--color-accent);">JavaScript is Single-Threaded</h2>
+    <div class="col gap-lg mt-4" style="flex: 1;">
+        <div class="card">
+            <p style="margin: 0; font-weight: 600; color: var(--color-accent);">Only one function executes at a time</p>
+        </div>
+        <div class="card">
+            <p style="margin: 0; font-weight: 600;">But... JavaScript feels asynchronous 🤔</p>
+            <p style="margin: 0; font-size: 0.95rem;">The browser's Web APIs + Event Loop create the illusion</p>
+        </div>
+        <div class="card-highlight">
+            <p style="margin: 0; font-weight: 600; color: var(--color-success);">Solution: Event Loop manages async operations</p>
+        </div>
+    </div>
+</section>
+
+<!-- SLIDE 3: RUNTIME ARCHITECTURE OVERVIEW -->
+<section class="slide" style="background-color: var(--color-dark-bg);">
+    <h2 style="color: var(--color-accent);">JavaScript Runtime Architecture</h2>
+    <div class="col gap-lg mt-4" style="flex: 1;">
+        <div class="row gap-lg">
+            <div class="fill-width" style="background-color: var(--color-dark-surface); padding: 1.5rem; border-left: 4px solid var(--color-accent);">
+                <div class="label">CALL STACK</div>
+                <p style="margin: 0; font-size: 0.95rem;">Tracks function execution. LIFO structure (Last-In-First-Out).</p>
+            </div>
+            <div class="fill-width" style="background-color: var(--color-dark-surface); padding: 1.5rem; border-left: 4px solid var(--color-success);">
+                <div class="label" style="color: var(--color-success);">WEB APIS</div>
+                <p style="margin: 0; font-size: 0.95rem;">setTimeout, fetch, DOM events - managed by browser.</p>
+            </div>
+        </div>
+        <div class="row gap-lg">
+            <div class="fill-width" style="background-color: var(--color-dark-surface); padding: 1.5rem; border-left: 4px solid var(--color-warning);">
+                <div class="label" style="color: var(--color-warning);">TASK QUEUE</div>
+                <p style="margin: 0; font-size: 0.95rem;">Macrotasks: setTimeout, setInterval, I/O events.</p>
+            </div>
+            <div class="fill-width" style="background-color: var(--color-dark-surface); padding: 1.5rem; border-left: 4px solid var(--color-success);">
+                <div class="label" style="color: var(--color-success);">MICROTASK QUEUE</div>
+                <p style="margin: 0; font-size: 0.95rem;">Promises, async/await, queueMicrotask(), MutationObserver.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- SLIDE 4: EXECUTION FLOW DIAGRAM -->
+<section class="slide" style="background-color: var(--color-dark-bg);">
+    <h2 style="color: var(--color-accent);">Event Loop: Execution Flow</h2>
+    <div class="col gap-md mt-4" style="flex: 1; justify-content: center;">
+        <div style="background-color: var(--color-dark-surface); padding: 1rem; border: 2px solid var(--color-accent); text-align: center;">
+            <p style="margin: 0; font-weight: 600; color: var(--color-accent);">1. Execute all synchronous code (Call Stack)</p>
+        </div>
+        <p style="text-align: center; margin: 0.5rem 0;">↓</p>
+        <div style="background-color: var(--color-dark-surface); padding: 1rem; border: 2px solid var(--color-success); text-align: center;">
+            <p style="margin: 0; font-weight: 600; color: var(--color-success);">2. Process ALL microtasks (Promises, async/await)</p>
+        </div>
+        <p style="text-align: center; margin: 0.5rem 0;">↓</p>
+        <div style="background-color: var(--color-dark-surface); padding: 1rem; border: 2px solid var(--color-warning); text-align: center;">
+            <p style="margin: 0; font-weight: 600; color: var(--color-warning);">3. Process ONE macrotask (setTimeout, I/O, etc.)</p>
+        </div>
+        <p style="text-align: center; margin: 0.5rem 0;">↓</p>
+        <p style="text-align: center; margin: 0; font-size: 0.95rem; color: var(--color-dark-text-secondary);">Go back to step 2 (repeat until queues empty)</p>
+    </div>
+</section>
+
+<!-- SLIDE 5: CALL STACK IN DETAIL -->
+<section class="slide" style="background-color: var(--color-dark-bg);">
+    <h2 style="color: var(--color-accent);">Call Stack: The Execution Context</h2>
+    <div class="row gap-lg mt-4" style="flex: 1; align-items: stretch;">
+        <div class="fill-width">
+            <p style="margin-bottom: 1rem;"><span class="code-inline">console.log('1');</span></p>
+            <p style="margin-bottom: 1rem;"><span class="code-inline">function foo() { console.log('2'); }</span></p>
+            <p style="margin-bottom: 1rem;"><span class="code-inline">foo();</span></p>
+            <p style="margin-bottom: 1rem;"><span class="code-inline">console.log('3');</span></p>
+        </div>
+        <div class="fill-width">
+            <p style="margin-bottom: 0.5rem; color: var(--color-accent); font-weight: 600;">Stack State (LIFO):</p>
+            <div class="stack-item">console.log('1')</div>
+            <div class="stack-item">foo()</div>
+            <div class="stack-item">console.log('2') [inside foo]</div>
+            <p style="text-align: center; margin: 0.5rem 0; font-size: 0.9rem;">↓ (pops after each)</p>
+            <div class="stack-item" style="opacity: 0.5;">console.log('3')</div>
+            <p style="margin-top: 1rem; font-size: 0.9rem; color: var(--color-dark-text-secondary);">Output: 1 → 2 → 3</p>
+        </div>
+    </div>
+</section>
+
+<!-- SLIDE 6: ASYNC EXAMPLE - CALLBACKS -->
+<section class="slide" style="background-color: var(--color-dark-bg);">
+    <h2 style="color: var(--color-accent);">Example: setTimeout Callback</h2>
+    <div class="col gap-md mt-2" style="flex: 1;">
+        <p style="margin: 0; font-size: 0.95rem;"><span class="code-inline">console.log('Start');</span></p>
+        <p style="margin: 0; font-size: 0.95rem;"><span class="code-inline">setTimeout(() =&gt; console.log('Async'), 0);</span></p>
+        <p style="margin: 0; font-size: 0.95rem;"><span class="code-inline">console.log('End');</span></p>
+        
+        <p style="margin-top: 1rem; font-weight: 600; color: var(--color-accent);">Execution Steps:</p>
+        <ul style="margin-left: 2rem; margin-top: 0.5rem;">
+            <li>1. 'Start' logged (sync, call stack)</li>
+            <li>2. setTimeout offloaded to Web API timer</li>
+            <li>3. 'End' logged (sync, call stack)</li>
+            <li>4. Call stack empty → Event Loop checks queues</li>
+            <li>5. Timer fires → callback goes to Task Queue</li>
+            <li>6. 'Async' logged (task queue executed)</li>
+        </ul>
+        <p style="margin-top: 1rem; color: var(--color-success); font-weight: 600;">Output: Start → End → Async</p>
+    </div>
+</section>
+
+<!-- SLIDE 7: MICROTASKS VS MACROTASKS -->
+<section class="slide" style="background-color: var(--color-dark-bg);">
+    <h2 style="color: var(--color-accent);">Microtasks vs Macrotasks</h2>
+    <div class="row gap-lg mt-3" style="flex: 1; align-items: flex-start;">
+        <div class="fill-width">
+            <p style="color: var(--color-success); font-weight: 600; margin-bottom: 0.5rem;">🟢 MICROTASKS (HIGH PRIORITY)</p>
+            <ul style="margin-left: 1rem; font-size: 0.95rem;">
+                <li>Promise.then/catch/finally</li>
+                <li>async/await</li>
+                <li>queueMicrotask()</li>
+                <li>MutationObserver</li>
+                <li>process.nextTick (Node.js)</li>
+            </ul>
+            <p style="margin-top: 1rem; font-size: 0.9rem; color: var(--color-dark-text-secondary);">✓ Executed BEFORE next macrotask</p>
+            <p style="font-size: 0.9rem; color: var(--color-dark-text-secondary);">✓ All processed in one loop</p>
+        </div>
+        <div class="fill-width">
+            <p style="color: var(--color-warning); font-weight: 600; margin-bottom: 0.5rem;">🟡 MACROTASKS (LOWER PRIORITY)</p>
+            <ul style="margin-left: 1rem; font-size: 0.95rem;">
+                <li>setTimeout/setInterval</li>
+                <li>setImmediate (Node.js)</li>
+                <li>I/O operations</li>
+                <li>DOM events</li>
+                <li>requestAnimationFrame</li>
+            </ul>
+            <p style="margin-top: 1rem; font-size: 0.9rem; color: var(--color-dark-text-secondary);">✓ One processed per loop</li>
+            <p style="font-size: 0.9rem; color: var(--color-dark-text-secondary);">✓ Lower priority than microtasks</p>
+        </div>
+    </div>
+</section>
+
+<!-- SLIDE 8: PRIORITY EXAMPLE -->
+<section class="slide" style="background-color: var(--color-dark-bg);">
+    <h2 style="color: var(--color-accent);">Example: Microtask Priority</h2>
+    <div class="col gap-md mt-2" style="flex: 1;">
+        <p><span class="code-inline">console.log('Start');</span></p>
+        <p><span class="code-inline">setTimeout(() =&gt; console.log('Timeout'), 0);</span></p>
+        <p><span class="code-inline">Promise.resolve().then(() =&gt; console.log('Promise'));</span></p>
+        <p><span class="code-inline">console.log('End');</span></p>
+        
+        <p style="margin-top: 1rem; font-weight: 600; color: var(--color-success);">Output: Start → End → Promise → Timeout</p>
+        
+        <p style="margin-top: 1rem; font-size: 0.9rem;"><span style="color: var(--color-accent); font-weight: 600;">Why?</span> Promise callbacks (microtasks) execute BEFORE setTimeout callbacks (macrotasks), even with 0ms delay!</p>
+    </div>
+</section>
+
+<!-- SLIDE 9: PROMISES DEEP DIVE -->
+<section class="slide" style="background-color: var(--color-dark-bg);">
+    <h2 style="color: var(--color-accent);">Promises: The Microtask Gateway</h2>
+    <div class="col gap-md mt-4" style="flex: 1;">
+        <div style="background-color: var(--color-dark-surface); padding: 1rem;">
+            <p style="margin: 0; font-weight: 600; color: var(--color-accent);">Promise States:</p>
+            <p style="margin: 0.5rem 0; font-size: 0.9rem;"><span class="success-text">✓ Pending</span> → <span class="success-text">Fulfilled</span> / <span class="danger-text">Rejected</span></p>
+        </div>
+        <div style="background-color: var(--color-dark-surface); padding: 1rem;">
+            <p style="margin: 0; font-weight: 600;">Promise Resolution Flow:</p>
+            <p style="margin: 0.5rem 0; font-size: 0.9rem;">1. Promise resolves → .then() callback queued</p>
+            <p style="margin: 0.5rem 0; font-size: 0.9rem;">2. Callback added to <span class="success-text">Microtask Queue</span></p>
+            <p style="margin: 0.5rem 0; font-size: 0.9rem;">3. Executes <span style="color: var(--color-warning);">BEFORE</span> any setTimeout callbacks</p>
+        </div>
+        <div class="card-highlight">
+            <p style="margin: 0; font-weight: 600; color: var(--color-success);">Microtasks ensure Promise resolution happens immediately after current execution</p>
+        </div>
+    </div>
+</section>
+
+<!-- SLIDE 10: ASYNC/AWAIT INTERNALS -->
+<section class="slide" style="background-color: var(--color-dark-bg);">
+    <h2 style="color: var(--color-accent);">Async/Await: Syntactic Sugar for Promises</h2>
+    <div class="row gap-lg mt-3" style="flex: 1;">
+        <div class="fill-width">
+            <p style="margin-bottom: 0.5rem; font-weight: 600;">async function:</p>
+            <p style="font-size: 0.9rem; color: var(--color-dark-text-secondary);">• Always returns a Promise</p>
+            <p style="font-size: 0.9rem; color: var(--color-dark-text-secondary);">• Return value wrapped in Promise</p>
+            <p style="font-size: 0.9rem; color: var(--color-dark-text-secondary);">• Errors become rejected promises</p>
+        </div>
+        <div class="fill-width">
+            <p style="margin-bottom: 0.5rem; font-weight: 600;">await operator:</p>
+            <p style="font-size: 0.9rem; color: var(--color-dark-text-secondary);">• Pauses execution until Promise settles</p>
+            <p style="font-size: 0.9rem; color: var(--color-dark-text-secondary);">• Callback added to Microtask Queue</p>
+            <p style="font-size: 0.9rem; color: var(--color-dark-text-secondary);">• Actually: returns Promise → microtask for continuation</p>
+        </div>
+    </div>
+    <p style="margin-top: 1rem; color: var(--color-warning); font-weight: 600;">⚠️ Key: Both async/await and Promises use Microtask Queue!</p>
+</section>
+
+<!-- SLIDE 11: ASYNC/AWAIT EXECUTION -->
+<section class="slide" style="background-color: var(--color-dark-bg);">
+    <h2 style="color: var(--color-accent);">Async/Await Execution Model</h2>
+    <div class="col gap-md mt-3" style="flex: 1; justify-content: center;">
+        <p style="font-size: 0.95rem; margin: 0;"><span class="code-inline">async function fetchData() {</span></p>
+        <p style="font-size: 0.95rem; margin: 0.5rem 0 0 2rem;"><span class="code-inline">let result = await fetch('api/data');</span></p>
+        <p style="font-size: 0.95rem; margin: 0.5rem 0 0 2rem;"><span class="code-inline">return result;</span></p>
+        <p style="font-size: 0.95rem; margin: 0;"><span class="code-inline">}</span></p>
+        
+        <p style="margin-top: 1rem; font-weight: 600; color: var(--color-accent);">Under the hood:</p>
+        <ul style="margin-left: 1rem; font-size: 0.9rem; margin-top: 0.5rem;">
+            <li>1. fetch() returns Promise (macrotask: I/O operation)</li>
+            <li>2. await pauses async function</li>
+            <li>3. Creates microtask for continuation after fetch settles</li>
+            <li>4. Continuation (return result) runs as microtask</li>
+        </ul>
+    </div>
+</section>
+
+<!-- SLIDE 12: REAL WORLD EXAMPLE 1 -->
+<section class="slide" style="background-color: var(--color-dark-bg);">
+    <h2 style="color: var(--color-accent);">Real Example: Complex Execution Order</h2>
+    <div class="col gap-md mt-2" style="flex: 1; font-size: 0.9rem;">
+        <p style="margin: 0;"><span class="code-inline">console.log('1');</span></p>
+        <p style="margin: 0.5rem 0 0 0;"><span class="code-inline">setTimeout(() =&gt; console.log('2'), 0);</span></p>
+        <p style="margin: 0.5rem 0 0 0;"><span class="code-inline">Promise.resolve()</span></p>
+        <p style="margin: 0 0 0 2rem;"><span class="code-inline">.then(() =&gt; { console.log('3'); setTimeout(() =&gt; console.log('4'), 0); })</span></p>
+        <p style="margin: 0.5rem 0 0 0;"><span class="code-inline">.then(() =&gt; console.log('5'));</span></p>
+        <p style="margin: 0.5rem 0 0 0;"><span class="code-inline">console.log('6');</span></p>
+        
+        <p style="margin-top: 0.8rem; font-weight: 600; color: var(--color-success);">Output: 1 → 6 → 3 → 5 → 2 → 4</p>
+    </div>
+</section>
+
+<!-- SLIDE 13: REAL WORLD EXAMPLE 2 - EXPLANATION -->
+<section class="slide" style="background-color: var(--color-dark-bg);">
+    <h2 style="color: var(--color-accent);">Step-by-Step Breakdown</h2>
+    <div class="col gap-md mt-3" style="flex: 1; font-size: 0.9rem;">
+        <p><span style="color: var(--color-accent); font-weight: 600;">Phase 1 (Sync Code):</span> 1, 6 logged</p>
+        <p style="margin-top: 0.5rem;"><span style="color: var(--color-success); font-weight: 600;">Phase 2 (All Microtasks):</span> Promise callbacks execute</p>
+        <p style="margin-left: 1rem; font-size: 0.85rem;">• First .then() → logs 3, queues setTimeout('4')</p>
+        <p style="margin-left: 1rem; font-size: 0.85rem;">• Second .then() → logs 5</p>
+        <p style="margin-left: 1rem; font-size: 0.85rem;">✓ Both microtasks done in one loop!</p>
+        <p style="margin-top: 0.5rem;"><span style="color: var(--color-warning); font-weight: 600;">Phase 3 (First Macrotask):</span> logs 2</p>
+        <p style="margin-top: 0.5rem;"><span style="color: var(--color-success); font-weight: 600;">Phase 4 (Microtasks again):</span> None</p>
+        <p style="margin-top: 0.5rem;"><span style="color: var(--color-warning); font-weight: 600;">Phase 5 (Second Macrotask):</span> logs 4</p>
+    </div>
+</section>
+
+<!-- SLIDE 14: NODE.JS SPECIFIC - PHASES -->
+<section class="slide" style="background-color: var(--color-dark-bg);">
+    <h2 style="color: var(--color-accent);">Node.js Event Loop Phases</h2>
+    <div class="col gap-md mt-3" style="flex: 1; font-size: 0.9rem;">
+        <div style="background-color: var(--color-dark-surface); padding: 1rem; border-left: 4px solid var(--color-accent);">
+            <p style="margin: 0; font-weight: 600;">1. timers → 2. pending callbacks → 3. idle/prepare</p>
+        </div>
+        <div style="background-color: var(--color-dark-surface); padding: 1rem; border-left: 4px solid var(--color-accent);">
+            <p style="margin: 0; font-weight: 600;">4. poll (I/O) → 5. check → 6. close callbacks</p>
+        </div>
+        <div class="card-highlight">
+            <p style="margin: 0; font-weight: 600; color: var(--color-success);">⭐ Microtasks execute between EVERY phase!</p>
+        </div>
+        <p style="margin-top: 1rem; font-size: 0.85rem;">Node.js specific: <span class="code-inline">process.nextTick()</span> runs BEFORE microtasks</p>
+    </div>
+</section>
+
+<!-- SLIDE 15: STARVATION PROBLEM -->
+<section class="slide" style="background-color: var(--color-dark-bg);">
+    <h2 style="color: var(--color-accent);">Microtask Starvation Problem ⚠️</h2>
+    <div class="col gap-md mt-4" style="flex: 1;">
+        <div class="card-warning">
+            <p style="margin: 0; font-weight: 600;">If microtask queue continuously adds tasks:</p>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem;">Macrotasks NEVER execute! 🔴</p>
+        </div>
+        <p style="margin-top: 0.5rem; font-size: 0.95rem;">Example: Recursive Promise.then() prevents setTimeout from running</p>
+        <p style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--color-warning); font-weight: 600;">✗ Don't create infinite Promise chains in production code</p>
+        <p style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--color-success); font-weight: 600;">✓ Ensure microtasks eventually complete</p>
+    </div>
+</section>
+
+<!-- SLIDE 16: PERFORMANCE IMPLICATIONS -->
+<section class="slide" style="background-color: var(--color-dark-bg);">
+    <h2 style="color: var(--color-accent);">Performance Implications</h2>
+    <div class="col gap-lg mt-4" style="flex: 1;">
+        <div class="card">
+            <p style="margin: 0; font-weight: 600;">✓ Long Microtasks:</p>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem;">All other microtasks delayed, but UI rendering delayed further (good for batch updates)</p>
+        </div>
+        <div class="card">
+            <p style="margin: 0; font-weight: 600;">✗ Heavy Macrotasks:</p>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem;">UI blocking! Microtasks also blocked. Use requestAnimationFrame or break into chunks</p>
+        </div>
+        <div class="card-highlight">
+            <p style="margin: 0; font-weight: 600; color: var(--color-success);">Tip: Use requestAnimationFrame for smooth animations instead of nested setTimeout</p>
+        </div>
+    </div>
+</section>
+
+<!-- SLIDE 17: DEBUGGING TECHNIQUES -->
+<section class="slide" style="background-color: var(--color-dark-bg);">
+    <h2 style="color: var(--color-accent);">Debugging Async Code</h2>
+    <div class="col gap-md mt-4" style="flex: 1; font-size: 0.9rem;">
+        <p style="margin: 0;"><span class="code-inline">console.trace()</span> - Shows call stack at specific point</p>
+        <p style="margin: 0.5rem 0 0 0;"><span class="code-inline">debugger;</span> - Breakpoint in DevTools</p>
+        <p style="margin: 0.5rem 0 0 0;"><span class="code-inline">async Stack Traces</span> - DevTools shows Promise chain</p>
+        <p style="margin: 0.5rem 0 0 0;"><span class="code-inline">Performance tab</span> - Visualize event loop phases</p>
+        <div class="card-highlight" style="margin-top: 1rem;">
+            <p style="margin: 0; font-weight: 600; color: var(--color-success);">Chrome DevTools: Sources tab → Pause on exceptions → Async stack</p>
+        </div>
+    </div>
+</section>
+
+<!-- SLIDE 18: BEST PRACTICES -->
+<section class="slide" style="background-color: var(--color-dark-bg);">
+    <h2 style="color: var(--color-accent);">Best Practices</h2>
+    <div class="col gap-md mt-3" style="flex: 1; font-size: 0.9rem;">
+        <p style="margin: 0; font-weight: 600; color: var(--color-success);">✓ Use async/await over .then() chains</p>
+        <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: var(--color-dark-text-secondary);">More readable, easier to debug</p>
+        
+        <p style="margin: 0.5rem 0 0 0; font-weight: 600; color: var(--color-success);">✓ Batch DOM updates in single Promise</p>
+        <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: var(--color-dark-text-secondary);">Use microtask queue for efficient rendering</p>
+        
+        <p style="margin: 0.5rem 0 0 0; font-weight: 600; color: var(--color-success);">✓ Understand execution order</p>
+        <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: var(--color-dark-text-secondary);">Critical for race condition prevention</p>
+        
+        <p style="margin: 0.5rem 0 0 0; font-weight: 600; color: var(--color-warning);">✗ Avoid deeply nested Promises</p>
+        <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: var(--color-dark-text-secondary);">Use async/await or Promise.all() for clarity</p>
+    </div>
+</section>
+
+<!-- SLIDE 19: MEMORY LEAKS IN ASYNC -->
+<section class="slide" style="background-color: var(--color-dark-bg);">
+    <h2 style="color: var(--color-accent);">Common Async Pitfalls</h2>
+    <div class="col gap-md mt-4" style="flex: 1; font-size: 0.9rem;">
+        <div class="card-warning">
+            <p style="margin: 0; font-weight: 600;">❌ Unhandled Promise Rejection</p>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem;">Silent failures, hard to debug</p>
+        </div>
+        <div class="card-warning">
+            <p style="margin: 0; font-weight: 600;">❌ Race Conditions</p>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem;">Multiple async operations modify shared state</p>
+        </div>
+        <div class="card-warning">
+            <p style="margin: 0; font-weight: 600;">❌ Memory Leaks from Callbacks</p>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem;">Event listeners not cleaned up after async operations</p>
+        </div>
+    </div>
+</section>
+
+<!-- SLIDE 20: SUMMARY & KEY TAKEAWAYS -->
+<section class="slide center" style="background-color: #020617;">
+    <h2 style="color: var(--color-accent); margin-bottom: 2rem;">Key Takeaways</h2>
+    <div style="text-align: left; display: inline-block;">
+        <p style="margin: 0.5rem 0; font-size: 1rem;"><span style="color: var(--color-accent); font-weight: 600;">1.</span> JS is single-threaded, Event Loop enables async behavior</p>
+        <p style="margin: 0.5rem 0; font-size: 1rem;"><span style="color: var(--color-accent); font-weight: 600;">2.</span> Call Stack → Microtask Queue → Macrotask Queue (repeat)</p>
+        <p style="margin: 0.5rem 0; font-size: 1rem;"><span style="color: var(--color-accent); font-weight: 600;">3.</span> Microtasks (Promises, async) run BEFORE macrotasks (setTimeout)</p>
+        <p style="margin: 0.5rem 0; font-size: 1rem;"><span style="color: var(--color-accent); font-weight: 600;">4.</span> async/await = syntactic sugar for Promises (both use microtasks)</p>
+        <p style="margin: 0.5rem 0; font-size: 1rem;"><span style="color: var(--color-accent); font-weight: 600;">5.</span> Understand order to prevent race conditions & optimize performance</p>
+    </div>
+</section>
+
+</body>
+</html>
